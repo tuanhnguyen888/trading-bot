@@ -1,0 +1,13 @@
+# Binaries
+bin/
+main
+
+# Environment Variables
+.env
+
+# Vendor
+vendor/
+
+# IDEs
+.idea/
+.vscode/
