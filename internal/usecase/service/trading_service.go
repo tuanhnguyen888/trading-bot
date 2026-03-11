@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"trading/internal/domain"
-	"trading/internal/infrastructure/logger"
 
 	"github.com/shopspring/decimal"
 )
@@ -14,7 +13,7 @@ type TradingService struct {
 	marketData  domain.MarketDataProvider
 	orderRepo   domain.OrderRepository
 	strategy    domain.Strategy
-	logger      *logger.Logger
+	logger      domain.Logger
 	tradingPair string
 	
 	// Configuration (e.g., trade amount)
@@ -26,7 +25,7 @@ func NewTradingService(
 	md domain.MarketDataProvider,
 	repo domain.OrderRepository,
 	strat domain.Strategy,
-	log *logger.Logger,
+	log domain.Logger,
 	symbol string,
 	tradeAmt decimal.Decimal,
 ) *TradingService {

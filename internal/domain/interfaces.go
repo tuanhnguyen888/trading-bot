@@ -6,6 +6,18 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+// Logger defines the port for structured logging.
+type Logger interface {
+	Info(msg string, args ...any)
+	Error(msg string, args ...any)
+	Debug(msg string, args ...any)
+}
+
+// TradingEngine defines the port for the trading service.
+type TradingEngine interface {
+	Start(ctx context.Context) error
+}
+
 // MarketDataProvider defines the interface for fetching market data.
 type MarketDataProvider interface {
 	// SubscribePriceUpdates subscribes to real-time price updates for a symbol.

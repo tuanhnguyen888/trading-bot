@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 	"trading/internal/domain"
-	"trading/internal/infrastructure/logger"
 
 	"github.com/adshao/go-binance/v2"
 	"github.com/shopspring/decimal"
@@ -14,11 +13,11 @@ import (
 // Client wraps the official Binance SDK.
 type Client struct {
 	api    *binance.Client
-	logger *logger.Logger
+	logger domain.Logger
 }
 
 // NewClient initializes a new Binance client connected to the Spot Testnet.
-func NewClient(apiKey, secretKey string, log *logger.Logger) *Client {
+func NewClient(apiKey, secretKey string, log domain.Logger) *Client {
 	// Use Testnet
 	binance.UseTestnet = true
 	client := binance.NewClient(apiKey, secretKey)
@@ -27,11 +26,6 @@ func NewClient(apiKey, secretKey string, log *logger.Logger) *Client {
 		api:    client,
 		logger: log,
 	}
-}
-
-// GetAPIClient returns the underlying binance client (helper for repository).
-func (c *Client) GetAPIClient() *binance.Client {
-	return c.api
 }
 
 // SubscribePriceUpdates establishes a WebSocket connection for a specific symbol.

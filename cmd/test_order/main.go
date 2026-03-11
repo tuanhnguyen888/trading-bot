@@ -7,7 +7,6 @@ import (
 
 	"trading/internal/config"
 	"trading/internal/domain"
-	"trading/internal/infrastructure/binance"
 	"trading/internal/infrastructure/logger"
 	"trading/internal/infrastructure/repository"
 
@@ -27,8 +26,7 @@ func main() {
 	}
 
 	// 3. Initialize Infrastructure
-	binanceClient := binance.NewClient(cfg.BinanceAPIKey, cfg.BinanceSecretKey, log)
-	orderRepo := repository.NewBinanceOrderRepository(binanceClient.GetAPIClient())
+	orderRepo := repository.NewBinanceOrderRepository(cfg.BinanceAPIKey, cfg.BinanceSecretKey)
 
 	// 4. Create a Test Order
 	// BUY 0.001 BTC (ensure this is above min-notional for testnet, usually it is)

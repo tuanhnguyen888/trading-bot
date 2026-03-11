@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"trading/internal/config"
+	"trading/internal/domain"
 	"trading/internal/infrastructure/binance"
 	"trading/internal/infrastructure/logger"
 	"trading/internal/infrastructure/repository"
@@ -17,7 +18,7 @@ import (
 )
 
 func main() {
-	// 1. Initialize Logger
+	// 1. Initialize Logger (implements domain.Logger)
 	log := logger.NewLogger()
 	log.Info("Starting Crypto Trading Bot...")
 
@@ -30,43 +31,31 @@ func main() {
 
 	// 3. Initialize Infrastructure
 	binanceClient := binance.NewClient(cfg.BinanceAPIKey, cfg.BinanceSecretKey, log)
-	orderRepo := repository.NewBinanceOrderRepository(binanceClient.GetAPIClient()) // Need to expose Client or wrap better
+	orderRepo := repository.NewBinanceOrderRepository(cfg.BinanceAPIKey, cfg.BinanceSecretKey)
 
-	// 4. Initialize Strategies
-	// Create individual strategies with default configs
-	cvdStrategy := strategy.NewCVDStrategy(strategy.DefaultCVDConfig())
-	heatmapStrategy := strategy.NewHeatmapStrategy(strategy.DefaultHeatmapConfig())
-	ictStrategy := strategy.NewICTStrategy(strategy.DefaultICTConfig())
-
-	// Create composite strategy with majority voting (2 of 3)
+	// 4. Initialize Strategies (injected as domain.AdvancedStrategy interface)
 	compositeStrategy := strategy.NewCompositeStrategy(
-		cvdStrategy,
-		heatmapStrategy,
-		ictStrategy,
+		strategy.NewCVDStrategy(strategy.DefaultCVDConfig()),
+		strategy.NewHeatmapStrategy(strategy.DefaultHeatmapConfig()),
+		strategy.NewICTStrategy(strategy.DefaultICTConfig()),
 	)
 
-	// 5. Initialize Advanced Trading Service
-	// Trade Amount: 0.001 BTC (Example fixed amount)
-	// In a real app, this should be dynamic or config-based
-	tradeAmount := decimal.NewFromFloat(0.001)
-
-	// Multiple timeframes: 1m for primary signals, 15m for trend context
-	tradingService := service.NewAdvancedTradingService(
-		binanceClient, // Implements MarketDataProvider
+	// 5. Initialize Trading Service (domain.TradingEngine)
+	var tradingEngine domain.TradingEngine = service.NewAdvancedTradingService(
+		binanceClient,
 		orderRepo,
 		compositeStrategy,
 		log,
 		cfg.TradingSymbol,
-		tradeAmount,
-		"1m",  // Primary interval
-		"15m", // Secondary interval for trend confirmation
+		decimal.NewFromFloat(cfg.TradeAmount),
+		cfg.PrimaryInterval,
+		cfg.SecondaryInterval,
 	)
 
 	// 6. Start Service with Graceful Shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Handle OS signals
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
@@ -76,8 +65,7 @@ func main() {
 		cancel()
 	}()
 
-	// Start trading loop (blocking)
-	if err := tradingService.Start(ctx); err != nil {
+	if err := tradingEngine.Start(ctx); err != nil {
 		log.Error("Trading service stopped with error", "error", err)
 	}
 

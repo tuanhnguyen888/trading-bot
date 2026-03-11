@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"trading/internal/domain"
 
 	"github.com/adshao/go-binance/v2"
@@ -13,9 +14,11 @@ type BinanceOrderRepository struct {
 	client *binance.Client
 }
 
-func NewBinanceOrderRepository(client *binance.Client) *BinanceOrderRepository {
+// NewBinanceOrderRepository creates a repository using Binance Spot Testnet credentials.
+func NewBinanceOrderRepository(apiKey, secretKey string) *BinanceOrderRepository {
+	binance.UseTestnet = true
 	return &BinanceOrderRepository{
-		client: client,
+		client: binance.NewClient(apiKey, secretKey),
 	}
 }
 
@@ -30,7 +33,6 @@ func (r *BinanceOrderRepository) CreateOrder(ctx context.Context, order *domain.
 		orderType = binance.OrderTypeMarket
 	}
 
-	// Create service
 	service := r.client.NewCreateOrderService().
 		Symbol(order.Symbol).
 		Side(side).
@@ -39,25 +41,41 @@ func (r *BinanceOrderRepository) CreateOrder(ctx context.Context, order *domain.
 
 	if orderType == binance.OrderTypeLimit {
 		service.Price(order.Price.String())
-		service.TimeInForce(binance.TimeInForceTypeGTC) // Good Till Cancel
+		service.TimeInForce(binance.TimeInForceTypeGTC)
 	}
 
-	// Execute
 	resp, err := service.Do(ctx)
 	if err != nil {
 		return fmt.Errorf("%w: %v", domain.ErrOrderFailed, err)
 	}
 
-	// Update order ID from response
 	order.ID = fmt.Sprintf("%d", resp.OrderID)
-	order.Status = domain.OrderStatusNew // Simplified, actual status depends on fill
-	
+	order.Status = domain.OrderStatusNew
+
 	return nil
 }
 
 func (r *BinanceOrderRepository) GetOrder(ctx context.Context, orderID, symbol string) (*domain.Order, error) {
-	// Not immediately needed for MVP strategy but good to have placeholder
-	return nil, fmt.Errorf("not implemented")
+	id, err := strconv.ParseInt(orderID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid order ID %q: %w", orderID, err)
+	}
+
+	resp, err := r.client.NewGetOrderService().Symbol(symbol).OrderID(id).Do(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get order: %w", err)
+	}
+
+	price, _ := decimal.NewFromString(resp.Price)
+	qty, _ := decimal.NewFromString(resp.OrigQuantity)
+
+	return &domain.Order{
+		ID:       fmt.Sprintf("%d", resp.OrderID),
+		Symbol:   resp.Symbol,
+		Price:    price,
+		Quantity: qty,
+		Status:   domain.OrderStatusNew,
+	}, nil
 }
 
 func (r *BinanceOrderRepository) GetOpenOrders(ctx context.Context, symbol string) ([]*domain.Order, error) {
@@ -66,29 +84,31 @@ func (r *BinanceOrderRepository) GetOpenOrders(ctx context.Context, symbol strin
 		return nil, err
 	}
 
-	var result []*domain.Order
+	result := make([]*domain.Order, 0, len(orders))
 	for _, o := range orders {
 		price, _ := decimal.NewFromString(o.Price)
 		qty, _ := decimal.NewFromString(o.OrigQuantity)
-		
 		result = append(result, &domain.Order{
 			ID:       fmt.Sprintf("%d", o.OrderID),
 			Symbol:   o.Symbol,
 			Price:    price,
 			Quantity: qty,
-			Status:   domain.OrderStatusNew, // Mapping needed
+			Status:   domain.OrderStatusNew,
 		})
 	}
 	return result, nil
 }
 
 func (r *BinanceOrderRepository) CancelOrder(ctx context.Context, orderID, symbol string) error {
-	// Convert orderID to int64 if necessary, SDK handles it?
-	// SDK uses ID or OrigClientOrderID
-	// For simplicity assuming we parse ID or use SDK properly
-	// The adshao SDK CreateOrderService returns ID as int64.
-	// We'll need to handle conversion.
-	
-	// Placeholder
+	id, err := strconv.ParseInt(orderID, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid order ID %q: %w", orderID, err)
+	}
+
+	_, err = r.client.NewCancelOrderService().Symbol(symbol).OrderID(id).Do(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to cancel order: %w", err)
+	}
+
 	return nil
 }

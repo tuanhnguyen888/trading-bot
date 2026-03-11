@@ -215,3 +215,19 @@ binance.WsDepthServe → domain.OrderBookSnapshot → Strategy.OnOrderBookUpdate
 ## Decimal Precision
 
 All price/quantity calculations use `shopspring/decimal` to avoid floating-point errors. Never use `float64` for financial calculations - always convert to `decimal.Decimal`.
+
+## Workflow Rules
+
+After every code fix or edit, **always** run the following commands in order to ensure correctness:
+
+```bash
+# 1. Build to verify compilation
+go build ./...
+
+# 2. Run all tests to verify behavior
+go test -race ./...
+
+
+```
+
+Do not consider a task complete until both commands pass without errors.
